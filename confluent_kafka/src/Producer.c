@@ -147,7 +147,7 @@ static void dr_msg_cb (rd_kafka_t *rk, const rd_kafka_message_t *rkm,
 	}
 
 	msgobj = Message_new0(rkm);
-	
+
 	args = Py_BuildValue("(OO)",
 			     Message_error((Message *)msgobj, NULL),
 			     msgobj);
@@ -289,11 +289,14 @@ static PyObject *Producer_produce (Handle *self, PyObject *args,
 	 * are wanted. */
 	msgstate = Producer_msgstate_new(self, dr_cb, partitioner_cb);
 
+	rd_kafka_resp_err_t err = -12345;
+
 	/* Produce message */
 	if (rd_kafka_produce(rkt, partition, RD_KAFKA_MSG_F_COPY,
 			     (void *)value, value_len,
 			     (void *)key, key_len, msgstate) == -1) {
 		rd_kafka_resp_err_t err = rd_kafka_last_error();
+
 
 		if (msgstate)
 			Producer_msgstate_destroy(msgstate);
@@ -308,7 +311,10 @@ static PyObject *Producer_produce (Handle *self, PyObject *args,
 
 		return NULL;
 	}
-	
+
+	while (err == -12345)
+        rd_kafka_poll(rkt, 1000);
+
 	rd_kafka_topic_destroy(rkt);
 
 	Py_RETURN_NONE;
@@ -427,7 +433,7 @@ static Py_ssize_t Producer__len__ (Handle *self) {
 static PySequenceMethods Producer_seq_methods = {
 	(lenfunc)Producer__len__ /* sq_length */
 };
-	
+
 
 static PyObject *Producer_new (PyTypeObject *type, PyObject *args,
 				   PyObject *kwargs);
